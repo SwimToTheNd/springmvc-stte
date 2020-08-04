@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:context="http://www.springframework.org/schema/context" xmlns:p="http://www.springframework.org/schema/p"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--基于注解配置mvc mapping-->
+    <!--启动包扫描功能，以便注册带有@Controller、@Service、@Repository、@Component等注解的类成为Spring的Bean-->
+    <context:component-scan base-package="com.stte.smvc"/>
+
+    <!-- 配置注解驱动 可以将request参数与绑定到controller参数上 -->
+    <!--自动注册RequestMappingHandlerMapping，RequestMappingHandlerAdapter，ExceptionHandlerExceptionResolver 三个bean
+        还将提供以下支持：
+        1  支持使用 ConversionService 实例对表单参数进行类型转换
+        2. 支持使用 @NumberFormat annotation、@DateTimeFormat
+        3. 注解完成数据类型的格式化
+        4. 支持使用 @Valid 注解对 JavaBean 实例进行 JSR 303 验证
+        5. 支持使用 @RequestBody 和 @ResponseBody 注解
+    -->
+    <!--装配自己定义的类型转换器
+        mvc:annotation-driven 会自动注册一个默认的ConversionService，即FormattingConversionServiceFactoryBean(具有数据转换和数据格式化的功能)
+        显示定义一个ConversionService来覆盖默认实现类 通过 ConversionServiceFactoryBean 的 converters 属性注册自定义的类型转换器
+    -->
+    <mvc:annotation-driven conversion-service="conversionService">
+        <!--设置不使用默认的消息转换器-->
+        <mvc:message-converters register-defaults="false">
+            <bean class="org.springframework.http.converter.StringHttpMessageConverter"/>
+            <bean class="org.springframework.http.converter.ByteArrayHttpMessageConverter"/>
+            <bean class="org.springframework.http.converter.ResourceHttpMessageConverter"/>
+            <bean class="org.springframework.http.converter.xml.SourceHttpMessageConverter"/>
+            <bean class="org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter"/>
+            <bean class="org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter"/>
+            <bean class="com.alibaba.fastjson.support.spring.FastJsonHttpMessageConverter">
+                <property name="supportedMediaTypes">
+                    <list>
+                        <value>text/html;charset=UTF-8</value>
+                        <value>application/json;charset=UTF-8</value>
+                    </list>
+                </property>
+            </bean>
+        </mvc:message-converters>
+    </mvc:annotation-driven>
+
+    <!--基于 BeanNameUrlHandlerMapping  配置映谢-->
+    <bean id="/user.do" class="com.stte.smvc.controller.BeanNameControl"/>
+
+    <!-- 配置控制器 使用BeanNameUrlHandlerMapping  -->
+    <bean id="/hello2.do" class="com.stte.smvc.controller.ServletController"/>
+    <!-- 配置适配器 当IOC 中实例化这些类之后 DispatcherServlet 就会通过org.springframework.web.servlet.DispatcherServlet#getHandlerAdapter()
+         方法查找对应handler的适配器 ，如果找不到就会报 No adapter for handler 。
+         配置Servlet处理器的适配器
+    -->
+    <bean class="org.springframework.web.servlet.handler.SimpleServletHandlerAdapter"/>
+
+    <!--配置根据url的处理器映射器-->
+    <bean id="simpleControl" class="com.stte.smvc.controller.SimpleControl"/>
+
+    <bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+        <property name="urlMap">
+            <map>
+                <entry key="/user2.do" value-ref="simpleControl"/>
+            </map>
+        </property>
+    </bean>
+
+    <!-- 对模型视图名称的解析，即在模型视图名称添加前后缀(如果最后一个还是表示文件夹,则最后的斜杠不要漏了) 使用JSP-->
+    <!-- 默认的视图解析器 在上边的解析错误时使用 (默认使用html)- -->
+    <!-- 配置视图解析器: 如何把 handler 方法返回值解析为实际的物理视图 -->
+    <bean id="defaultViewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+        <property name="prefix" value="/WEB-INF/WebContent/page/"/><!--设置JSP文件的目录位置-->
+        <property name="suffix" value=".jsp"/>
+        <property name="exposeContextBeansAsAttributes" value="true"/>
+    </bean>
+
+    <!--使用默认的Servlet来响应静态文件-->
+    <mvc:default-servlet-handler/>
+    <!--静态资源映射-->
+    <mvc:resources mapping="/css/**" location="WEB-INF/WebContent/css/"/>
+    <mvc:resources mapping="/js/**" location="WEB-INF/WebContent/js/"/>
+    <mvc:resources mapping="/image/**" location="WEB-INF/WebContent/image/"/>
+
+    <!--配置拦截器-->
+    <mvc:interceptors>
+        <!-- 定义拦截器 -->
+        <mvc:interceptor>
+            <!-- 匹配的是url路径， 如果不配置或/**,将拦截所有的Controller -->
+            <mvc:mapping path="/**"/>
+            <!--配置处理器拦截器-->
+            <bean id="simpleHandlerInterceptor" class="com.stte.smvc.controller.SimpleHandlerInterceptor"/>
+        </mvc:interceptor>
+        <!--国际化操作拦截器 如果采用基于Session/Cookie则必须配置-->
+        <bean class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor"/>
+    </mvc:interceptors>
+
+    <!--配置处理器异常解析器-->
+    <bean class="com.stte.smvc.controller.SimpleHandlerExecptionResolver"/>
+
+    <!--加入自定义的类型转换器 转换器Converter完成Object与Object之间的转换-->
+    <bean id="conversionService" class="org.springframework.context.support.ConversionServiceFactoryBean">
+        <property name="converters">
+            <list>
+                <bean class="com.stte.smvc.config.StringToDateConverter" p:datePattern="yyyy-MM-dd"/>
+            </list>
+        </property>
+    </bean>
+
+    <!--使用默认的FormattingConversionService 加入自定义的类型转换器 转换器Converter完成Object与Object之间的转换-->
+    <!--<bean id="conversionService" class="org.springframework.format.support.FormattingConversionServiceFactoryBean">-->
+    <!--<property name="converters">-->
+    <!--<set>-->
+    <!--<bean class="com.stte.smvc.config.StringToDateConverter" p:datePattern="yyyy-MM-dd"/>-->
+    <!--<bean class="com.stte.smvc.config.WihitespaceToNullConverter"/> 不能使用Convertor将参数空字符串转换成null。-->
+    <!--</set>-->
+    <!--</property>-->
+    <!--</bean>-->
+
+    <!--配置全局的自定义编辑器-->
+    <!--<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter">-->
+    <!--<property name="webBindingInitializer">-->
+    <!--<bean class="com.stte.smvc.config.DateBindingInitializer"/>-->
+    <!--</property>-->
+    <!--</bean>-->
+
+    <!--配置国际-->
+    <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+        <!--国际化资源文件名-->
+        <property name="basenames" value="login"/>
+    </bean>
+    <!--默认语言区域解析器 不显式配置也可以-->
+    <!--<bean id="localeResolver" class="org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver"/>-->
+    <!--国际化采用Session/Cookie时必须配置bean和LocaleChangeInterceptor拦截器-->
+    <bean id="sessionLocaleResolver" class="org.springframework.web.servlet.i18n.SessionLocaleResolver"/>
+    <!--<bean id="cookieLocaleResolver" class="org.springframework.web.servlet.i18n.CookieLocaleResolver"/>-->
+
+    <!--SpringMVC默认没有装配MultipartResolver，默认情况下不能处理上传工作，需要配置MultipartResolver
+        需要指定id，不然Bean不能作为MultipartResolver装配
+    -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <!--上传文件大小上限设置为10M，单位为字节-->
+        <property name="maxUploadSize">
+            <value>10485760</value>
+        </property>
+        <!--请求的编码格式，必须和jsp的pageEncoding 属性一致，以便正确读取表单内容，默认为ISO-8859-1-->
+        <property name="defaultEncoding">
+            <value>UTF-8</value>
+        </property>
+    </bean>
+</beans>
